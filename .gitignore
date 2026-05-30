@@ -1,15 +1,14 @@
-# Datasets
-UCSD-PTGBM/
-BraTS-2024/
-*.nii
-*.nii.gz
+# Block the 11GB test set folder
+UCSD-PTGBM-BraTS-2024-test-set/
 
-# Virtual Environment
+# Block the other local data folder
+data/
+
+# Block PyTorch model checkpoints
+checkpoints/
+*.pt
+
+# Block Vector DB and Python environment
+chroma_db/
 neuro_agent/
-.venv/
-venv/
-env/
-
-# Python cache
 __pycache__/
-*.pyc
