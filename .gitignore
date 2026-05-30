@@ -1,4 +1,15 @@
+# Datasets
 UCSD-PTGBM/
 BraTS-2024/
 *.nii
 *.nii.gz
+
+# Virtual Environment
+neuro_agent/
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
