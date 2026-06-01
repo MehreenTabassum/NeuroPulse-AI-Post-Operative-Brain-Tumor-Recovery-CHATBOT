@@ -1,6 +1,7 @@
 <div align="center">
 
-# 🧠 NeuroRecovery AI — Level 3 Medical AI Agent
+# 🧠NeuroPulse-AI-Post-Operative-Brain-Tumor-Recovery-CHATBOT
+# Level 3 Medical AI Agent
 
 **Post-Operative Brain Tumor Recovery Analysis**
 *Powered by LangGraph · Groq (LLaMA 3) · FastAPI · CNN-ViT · BraTS-2024*
