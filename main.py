@@ -28,18 +28,16 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="NeuroRecovery AI Agent",
-    description="Level 3 Medical AI Agent — BraTS-2024 · LangGraph · Ollama.",
-    version="1.0.0",
+    description="Level 3 Medical AI Agent — BraTS-2024 · LangGraph · Groq.",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
-# FIX: allow all origins so test_stack.py, curl, and any frontend can reach the API.
-# Tighten to ["http://localhost:3000"] when deploying to production.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,   # must be False when allow_origins=["*"]
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -70,6 +68,10 @@ class ClinicalMetadata(BaseModel):
 class AnalyzeRecoveryRequest(BaseModel):
     clinical_metadata: ClinicalMetadata
     image_features:    Optional[list[float]] = Field(None)
+    # NEW: accept raw classifier logits from vision service if available
+    image_logits:      Optional[list[float]] = Field(
+        None, description="Raw [class0, class1] logits from CNN-ViT classifier head."
+    )
     session_id:        Optional[str]         = Field(None)
 
 
@@ -81,7 +83,10 @@ class AnalyzeRecoveryResponse(BaseModel):
     warnings:                list[str]
     retrieval_attempts:      int
     processing_time_seconds: float
+    # NEW: expose the MRI interpretation in the response for frontend display
+    mri_interpretation:      Optional[str] = None
     status:                  str = "success"
+
 
 # ---------------------------------------------------------------------------
 # Exception handler
@@ -94,6 +99,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": f"Internal server error: {exc}"},
     )
+
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -113,11 +119,11 @@ async def graph_schema() -> dict[str, Any]:
             "synthesize_report_node",
         ],
         "edges": [
-            {"from": "__start__",              "to": "extract_features_tool",    "type": "fixed"},
-            {"from": "extract_features_tool",  "to": "retrieve_literature_node", "type": "fixed"},
+            {"from": "__start__",               "to": "extract_features_tool",    "type": "fixed"},
+            {"from": "extract_features_tool",   "to": "retrieve_literature_node", "type": "fixed"},
             {"from": "retrieve_literature_node","to": "synthesize_report_node | retrieve_literature_node",
              "type": "conditional", "condition": "verify_literature_edge"},
-            {"from": "synthesize_report_node", "to": "__end__",                  "type": "fixed"},
+            {"from": "synthesize_report_node",  "to": "__end__",                  "type": "fixed"},
         ],
         "state_keys": list(RecoveryAgentState.__annotations__.keys()),
     }
@@ -137,6 +143,7 @@ async def analyze_recovery(payload: AnalyzeRecoveryRequest) -> AnalyzeRecoveryRe
 
     initial_state: RecoveryAgentState = {
         "image_features":     payload.image_features,
+        "mri_interpretation": None,   # NEW: populated by extract_features_tool
         "clinical_metadata":  payload.clinical_metadata.model_dump(),
         "literature_results": [],
         "retrieval_retry":    False,
@@ -178,6 +185,7 @@ async def analyze_recovery(payload: AnalyzeRecoveryRequest) -> AnalyzeRecoveryRe
         warnings=final_state.get("warnings", []),
         retrieval_attempts=final_state.get("retrieval_attempts", 0),
         processing_time_seconds=elapsed,
+        mri_interpretation=final_state.get("mri_interpretation"),   # NEW
         status="success",
     )
 
